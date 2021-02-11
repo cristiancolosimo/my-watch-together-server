@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <link href="https://vjs.zencdn.net/7.10.2/video-js.css" rel="stylesheet" />
+
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+    </style>
+  </head>
+  <body>
+    
+    <video preload="metadata" src="127.0.0.1:8080/2.mp4"></video>
+    <button id="play">Play</button>
+    <button id="stop">Stop</button>
+    <br>
+    <input type="range" min="0" max="1000" value="50" class="slider" id="timeslider" style="width:100%">
+    <input type="text" name="" id="url" placeholder="url video">
+    <button id="seturl">Setta url</button>
+    <input id="nome" value="" placeholder="Nome"/>
+
+
+    Lista utenti:
+    <ul id="list">
+
+    </ul>
+  </body>
+</html>
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const id= parseInt(Math.random()*100000);
+    const socket = io();
+    console.log("ID: "+id);
+    const video = document.querySelector("video");
+    const slider = document.querySelector("#timeslider");
+    let nome = "";
+    const nomeInput = document.querySelector("#nome");
+    const listautenti = document.getElementById("list");
+    
+
+    let listautenistore = {};
+
+    socket.on("nome",async(msg)=>{ 
+        console.log(msg)
+        
+        listautenistore[msg.id] = msg.nome;
+        let values = Object.values(listautenistore);
+        let listrendered = values.map(el =>{
+            let element = document.createElement("li");
+            element.textContent = el;
+            return element;
+        })
+        listautenti.textContent = "";
+        listautenti.append(...listrendered);
+    })
+
+    nomeInput.oninput = ()=>{
+
+        nome = nomeInput.value
+        socket.emit("nome",{id, nome});
+    };
+
+    
+    document.querySelector("#seturl").onclick=()=>{
+        if(document.querySelector("#url").value.length == 0) return;
+        socket.emit("video",{message:"urlchange",url:document.querySelector("#url").value,id});
+        console.log("set")
+        isPlaying= false;
+    }
+    document.querySelector("#play").onclick=()=>{
+        socket.emit("video",{message:"play",time: video.currentTime,id});
+
+        playVid();
+    }
+    document.querySelector("#stop").onclick=()=>{
+        socket.emit("video",{message:"pause",time: video.currentTime,id});
+        pauseVid()
+    }
+    video.ontimeupdate= ()=>{
+        slider.setAttribute("max",video.duration);
+        slider.value = video.currentTime|0;
+    }
+    slider.oninput = function(){
+        socket.emit("video",{message:"settime",time: +slider.value,id});
+
+    }
+
+
+    var isPlaying = false;
+
+// On video playing toggle values
+video.onplaying = function() {
+    isPlaying = true;
+    console.log("playing")
+};
+
+// On video pause toggle values
+video.onpause = function() {
+    console.log("pause")
+    isPlaying = false;
+};
+
+// Play video function
+function playVid() {      
+    if (video.paused && !isPlaying) {
+        video.play();
+    }
+} 
+
+// Pause video function
+function pauseVid() {     
+    if (!video.paused && isPlaying) {
+        video.pause();
+    }
+}
+
+
+/*
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (input.value) {
+        socket.emit('video', input.value);
+        input.value = '';
+      }
+    });*/
+    
+    socket.on('video',async (msg) =>{
+        //if(lastTime +300> Date.now() || true) return;
+        console.log(msg)
+        const parsed = msg;
+        
+        if(parsed.message == "settime"){
+            video.currentTime = parsed.time;
+            slider.value = parsed.time
+
+        }
+        if(parsed.message == "urlchange"){
+            video.src = parsed.url;
+        }
+        if(parsed.id == id) return;
+        if(parsed.message == "play"){
+            video.currentTime = parsed.time;
+            playVid();
+        }
+        if(parsed.message == "pause"){
+            video.currentTime = parsed.time;
+            pauseVid();
+        
+        }
+        
+    });
+
+  </script>
+  
